@@ -314,13 +314,41 @@ fileInput.addEventListener("change", function() {
   reader.readAsArrayBuffer(f);
 });
 
+function dateSortKey(mmdd) {
+  var m = String(mmdd).match(/(\d+)\/(\d+)/);
+  if (!m) return 999999;
+  return parseInt(m[1], 10) * 100 + parseInt(m[2], 10);
+}
+
+function columnMajorOrder(items, perLine) {
+  var rows = Math.ceil(items.length / perLine);
+  var out = [];
+  for (var r = 0; r < rows; r++) {
+    for (var c = 0; c < perLine; c++) {
+      var idx = c * rows + r;
+      out.push(idx < items.length ? items[idx] : null);
+    }
+  }
+  return out;
+}
+
 function buildVoucherEl(vendor, info, reason, applyDate) {
   var PER_LINE = 4;
+  var sortedItems = info.items.slice().sort(function(a, b) {
+    var d = dateSortKey(a.date) - dateSortKey(b.date);
+    if (d !== 0) return d;
+    return a.inv < b.inv ? -1 : (a.inv > b.inv ? 1 : 0);
+  });
+  var ordered = columnMajorOrder(sortedItems, PER_LINE);
   var gridHtml = "";
-  info.items.forEach(function(it) {
-    gridHtml += "<div class=g-date>" + it.date + "</div>" +
-                "<div class=g-inv>" + it.inv + "</div>" +
-                "<div class=g-amt>" + it.amt.toLocaleString() + "</div>";
+  ordered.forEach(function(it) {
+    if (it) {
+      gridHtml += "<div class=g-date>" + it.date + "</div>" +
+                  "<div class=g-inv>" + it.inv + "</div>" +
+                  "<div class=g-amt>" + it.amt.toLocaleString() + "</div>";
+    } else {
+      gridHtml += "<div class=g-date></div><div class=g-inv></div><div class=g-amt></div>";
+    }
   });
 
   var page = document.createElement("div");
