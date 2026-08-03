@@ -163,7 +163,7 @@
 <div class="app">
 
   <h1>支付證產生器</h1>
-  <p class="sub">上傳進貨明細檔（「檔案1」格式），依廠商自動彙總發票並產生每家廠商的支付證，可直接列印或另存 PDF。每家廠商預設印在一張 A5，資料太多印不下時會自動改用 A4（跨頁配置在 Chrome 列印/另存 PDF 時效果最準確）。</p>
+  <p class="sub">上傳進貨明細檔（「檔案1」格式），依廠商自動彙總發票並產生每家廠商的支付證，可直接列印或另存 PDF。每家廠商印在一張 A4，資料太多時會自動縮小字級塞進同一頁。</p>
 
   <div class="panel no-print">
     <h2>1. 上傳與設定</h2>
@@ -278,7 +278,6 @@ var summaryTable = document.getElementById("summaryTable");
 var warnArea = document.getElementById("warnArea");
 var vouchersEl = document.getElementById("vouchers");
 var workbookRows = null;
-var a4Vendors = [];
 
 fileInput.addEventListener("change", function() {
   var f = fileInput.files[0];
@@ -367,7 +366,7 @@ function buildVoucherEl(vendor, info, reason, applyDate) {
   });
 
   var page = document.createElement("div");
-  page.className = "voucher-page size-a5";
+  page.className = "voucher-page size-a4";
   page.innerHTML =
     "<div class=v-frame>" +
       "<div class='v-row v-title'>" +
@@ -461,7 +460,6 @@ genBtn.addEventListener("click", function() {
   var applyDate = document.getElementById("applyDate").value.trim();
 
   vouchersEl.innerHTML = "";
-  a4Vendors = [];
   var fragment = document.createDocumentFragment();
   var pages = [];
   order.forEach(function(vendor) {
@@ -472,30 +470,24 @@ genBtn.addEventListener("click", function() {
   });
   vouchersEl.appendChild(fragment);
 
-  // Fit each voucher onto A5; promote to A4 if it still doesn't fit.
+  // Fit each voucher's item list onto its A4 page.
   pages.forEach(function(p) {
-    var fitsA5 = shrinkToFit(p.page, 9, 7);
-    if (!fitsA5) {
-      p.page.className = "voucher-page size-a4";
-      var fitsA4 = shrinkToFit(p.page, 13, 8);
-      a4Vendors.push(p.vendor);
-      if (!fitsA4) {
-        warnings.push(p.vendor + "：項目數量過多，即使改用 A4 版面內容仍偏擠，建議列印後確認是否需要拆頁。");
-      }
+    var fits = shrinkToFit(p.page, 13, 8);
+    if (!fits) {
+      warnings.push(p.vendor + "：項目數量過多，A4 版面內容仍偏擠，建議列印後確認是否需要拆頁。");
     }
   });
 
   // Summary table
-  var html = "<tr><th>廠商</th><th>發票筆數</th><th class=num>請款總額</th><th>版面</th></tr>";
+  var html = "<tr><th>廠商</th><th>發票筆數</th><th class=num>請款總額</th></tr>";
   var grand = 0;
   order.forEach(function(v) {
     var info = vendors[v];
     grand += info.total;
-    var tag = a4Vendors.indexOf(v) !== -1 ? "<td class=a4tag>改用 A4</td>" : "<td>A5</td>";
     html += "<tr><td>" + v + "</td><td>" + info.items.length + "</td><td class=num>" +
-      info.total.toLocaleString() + "</td>" + tag + "</tr>";
+      info.total.toLocaleString() + "</td></tr>";
   });
-  html += "<tr class=total><td>共 " + order.length + " 家廠商</td><td></td><td class=num>" + grand.toLocaleString() + "</td><td></td></tr>";
+  html += "<tr class=total><td>共 " + order.length + " 家廠商</td><td></td><td class=num>" + grand.toLocaleString() + "</td></tr>";
   summaryTable.innerHTML = html;
 
   if (warnings.length) {
