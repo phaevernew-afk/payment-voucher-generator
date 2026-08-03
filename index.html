@@ -332,9 +332,24 @@ function columnMajorOrder(items, perLine) {
   return out;
 }
 
+function groupByInvoice(items) {
+  var map = {};
+  var order = [];
+  items.forEach(function(it) {
+    var key = it.inv;
+    if (!(key in map)) {
+      map[key] = { date: it.date, inv: it.inv, amt: 0 };
+      order.push(key);
+    }
+    map[key].amt += it.amt;
+  });
+  return order.map(function(k) { return map[k]; });
+}
+
 function buildVoucherEl(vendor, info, reason, applyDate) {
   var PER_LINE = 4;
-  var sortedItems = info.items.slice().sort(function(a, b) {
+  var grouped = groupByInvoice(info.items);
+  var sortedItems = grouped.slice().sort(function(a, b) {
     var d = dateSortKey(a.date) - dateSortKey(b.date);
     if (d !== 0) return d;
     return a.inv < b.inv ? -1 : (a.inv > b.inv ? 1 : 0);
