@@ -39,7 +39,7 @@
 
   .voucher { display:flex; flex-direction:column; overflow:hidden; width:100%; }
   .voucher.size-full { height:297mm; padding:12mm; font-size:12px; }
-  .voucher.size-half { height:148.5mm; padding:6mm 10mm; font-size:11px; }
+  .voucher.size-half { height:148mm; padding:6mm 10mm; font-size:11px; }
   .voucher.size-half + .voucher.size-half { border-top:1px dashed #999; }
 
   .v-frame { border:1.4px solid var(--line); display:flex; flex-direction:column; flex:1; min-height:0; }
@@ -72,15 +72,16 @@
   @media print {
     body { background:#fff; padding:0; }
     .no-print { display:none !important; }
-    .sheet { border:none; box-shadow:none; margin:0; break-after:page; }
+    .sheet { border:none; box-shadow:none; margin:0; height:296mm; break-after:page; }
+    .app { max-width:none; margin:0; }
     .sheet:last-child { break-after:auto; }
   }
 </style>
 </head>
 <body>
 <div class="app">
-  <h1>支付證產生器</h1>
-  <p class="sub">上傳進貨明細檔（「檔案1」格式），依廠商自動彙總發票並產生支付證。發票少的廠商印成半張 A4（兩家共用一張 A4），發票多的廠商自動改用整張 A4；也可手動指定。</p>
+  <h1 class="no-print">支付證產生器</h1>
+  <p class="sub no-print">上傳進貨明細檔（「檔案1」格式），依廠商自動彙總發票並產生支付證。發票少的廠商印成半張 A4（兩家共用一張 A4），發票多的廠商自動改用整張 A4；也可手動指定。</p>
 
   <div class="panel no-print">
     <h2>1. 上傳與設定</h2>
