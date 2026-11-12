@@ -5,165 +5,82 @@
 <title>支付證產生器</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  :root {
-    --ink: #1a1a1a;
-    --line: #333;
-    --muted: #666;
-    --warn-bg: #fff4e5;
-    --warn-border: #e0a030;
-    --accent: #2b5fa5;
-  }
+  :root { --ink:#1a1a1a; --line:#333; --muted:#666; --warn-bg:#fff4e5; --warn-border:#e0a030; --accent:#2b5fa5; }
   * { box-sizing: border-box; }
-  body {
-    font-family: "PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
-    color: var(--ink);
-    background: #f4f4f2;
-    margin: 0;
-    padding: 24px;
-  }
-  .app { max-width: 1000px; margin: 0 auto; }
-  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+  body { font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif; color:var(--ink); background:#f4f4f2; margin:0; padding:24px; }
+  .app { max-width:1000px; margin:0 auto; }
+  h1 { font-size:20px; font-weight:600; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 20px; }
+  .panel { background:#fff; border:1px solid #ddd; border-radius:8px; padding:18px 20px; margin-bottom:20px; }
+  .panel h2 { font-size:14px; font-weight:600; margin:0 0 12px; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; margin-bottom:10px; }
+  .field { display:flex; flex-direction:column; gap:4px; }
+  .field label { font-size:12px; color:var(--muted); }
+  .field input[type=text], .field select { border:1px solid #ccc; border-radius:4px; padding:7px 9px; font-size:13px; min-width:220px; background:#fff; }
+  input[type=file] { font-size:13px; }
+  button { border:1px solid var(--accent); background:var(--accent); color:#fff; padding:8px 16px; border-radius:4px; font-size:13px; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--accent); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .status { font-size:13px; color:var(--muted); margin-top:6px; }
 
-  .panel {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 18px 20px;
-    margin-bottom: 20px;
-  }
-  .panel h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+  table.summary { width:100%; border-collapse:collapse; font-size:13px; }
+  table.summary th, table.summary td { border-bottom:1px solid #eee; padding:6px 8px; text-align:left; }
+  table.summary th { color:var(--muted); font-weight:500; }
+  table.summary td.num, table.summary th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  table.summary tr.total td { font-weight:600; border-top:2px solid #999; }
+  .tag { font-size:12px; color:#b05a00; }
+  .warnbox { background:var(--warn-bg); border:1px solid var(--warn-border); border-radius:6px; padding:12px 14px; font-size:13px; margin-top:10px; }
+  .warnbox summary { cursor:pointer; font-weight:600; }
+  .warnbox ul { margin:8px 0 0; padding-left:18px; }
 
-  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin-bottom: 10px; }
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  .field label { font-size: 12px; color: var(--muted); }
-  .field input[type=text] {
-    border: 1px solid #ccc; border-radius: 4px; padding: 7px 9px; font-size: 13px; min-width: 220px;
-  }
-  input[type=file] { font-size: 13px; }
+  /* ---- one physical A4 sheet; holds 1 full voucher or up to 2 half vouchers ---- */
+  .sheet { background:#fff; border:1px solid #999; box-shadow:0 1px 4px rgba(0,0,0,.08);
+    margin:0 auto 28px; width:210mm; height:297mm; display:flex; flex-direction:column; overflow:hidden; }
 
-  button {
-    border: 1px solid var(--accent);
-    background: var(--accent);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 4px;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  button.secondary {
-    background: #fff; color: var(--accent);
-  }
-  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .voucher { display:flex; flex-direction:column; overflow:hidden; width:100%; }
+  .voucher.size-full { height:297mm; padding:12mm; font-size:12px; }
+  .voucher.size-half { height:148.5mm; padding:6mm 10mm; font-size:11px; }
+  .voucher.size-half + .voucher.size-half { border-top:1px dashed #999; }
 
-  .status { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .v-frame { border:1.4px solid var(--line); display:flex; flex-direction:column; flex:1; min-height:0; }
+  .v-row { border-bottom:1px solid var(--line); padding:5px 8px; }
+  .size-half .v-row { padding:3px 8px; }
+  .v-row:last-child { border-bottom:none; }
+  .v-title { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .v-title .vname { font-weight:700; font-size:1.25em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .v-title .vdate { font-weight:400; font-size:.9em; white-space:nowrap; }
+  .v-reason .lbl { font-weight:700; }
+  .v-list { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+  .v-list .hint { color:var(--muted); font-size:.85em; margin-bottom:4px; flex:0 0 auto; }
+  .voucher-list-grid { display:grid; grid-template-columns:repeat(4,5ch 10ch 7ch); column-gap:.3ch; row-gap:.15em;
+    align-content:start; font-variant-numeric:tabular-nums; line-height:1.35; overflow:hidden; flex:1 1 auto; min-height:0; }
+  .g-date, .g-inv { white-space:nowrap; }
+  .g-amt { white-space:nowrap; text-align:right; padding-right:.6em; }
+  .v-amount .amt-blank { display:inline-block; min-width:7.5em; border-bottom:1px solid #000; text-align:center; font-weight:700; }
+  .v-split { display:flex; padding:0 !important; }
+  .v-split .half { flex:1; padding:4px 8px; }
+  .v-split .half + .half { border-left:1px solid var(--line); }
+  .v-sig-header { display:flex; padding:0 !important; font-weight:600; text-align:center; }
+  .v-sig-header .cell { flex:1; padding:4px; }
+  .v-sig-header .cell + .cell { border-left:1px solid var(--line); }
+  .v-sig-blank { display:flex; padding:0 !important; flex:0 0 15mm; }
+  .size-half .v-sig-blank { flex:0 0 10mm; }
+  .v-sig-blank .cell { flex:1; }
+  .v-sig-blank .cell + .cell { border-left:1px solid var(--line); }
 
-  table.summary { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.summary th, table.summary td { border-bottom: 1px solid #eee; padding: 6px 8px; text-align: left; }
-  table.summary th { color: var(--muted); font-weight: 500; }
-  table.summary td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  table.summary tr.total td { font-weight: 600; border-top: 2px solid #999; }
-  table.summary td.a4tag { color: #b05a00; font-size: 12px; }
-
-  .warnbox {
-    background: var(--warn-bg);
-    border: 1px solid var(--warn-border);
-    border-radius: 6px;
-    padding: 12px 14px;
-    font-size: 13px;
-    margin-top: 10px;
-  }
-  .warnbox summary { cursor: pointer; font-weight: 600; }
-  .warnbox ul { margin: 8px 0 0; padding-left: 18px; }
-
-  /* ---- voucher page (screen preview mirrors physical mm size) ---- */
-  .voucher-page {
-    background: #fff;
-    border: 1px solid #999;
-    box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    margin: 0 auto 28px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .voucher-page.size-a5 { width: 148mm; height: 210mm; padding: 8mm; font-size: 11px; page: pa5; }
-  .voucher-page.size-a4 { width: 210mm; height: 297mm; padding: 12mm; font-size: 12px; page: pa4; }
-
-  .v-frame {
-    border: 1.4px solid var(--line);
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-  .v-row { border-bottom: 1px solid var(--line); padding: 5px 8px; }
-  .v-row:last-child { border-bottom: none; }
-
-  .v-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .v-title .vname { font-weight: 700; font-size: 1.25em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .v-title .vdate { font-weight: 400; font-size: 0.9em; white-space: nowrap; }
-
-  .v-reason .lbl { font-weight: 700; }
-
-  .v-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-  .v-list .hint { color: var(--muted); font-size: 0.85em; margin-bottom: 4px; flex: 0 0 auto; }
-  .voucher-list-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 5ch 10ch 7ch);
-    column-gap: 0.3ch;
-    row-gap: 0.15em;
-    align-content: start;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.35;
-    overflow: hidden;
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-  .g-date { white-space: nowrap; }
-  .g-inv { white-space: nowrap; }
-  .g-amt { white-space: nowrap; text-align: right; padding-right: 0.6em; }
-
-  .v-amount .amt-blank {
-    display: inline-block;
-    min-width: 7.5em;
-    border-bottom: 1px solid #000;
-    text-align: center;
-    font-weight: 700;
-  }
-
-  .v-split { display: flex; padding: 0; }
-  .v-split .half { flex: 1; padding: 5px 8px; }
-  .v-split .half + .half { border-left: 1px solid var(--line); }
-
-  .v-sig-header { display: flex; padding: 0; font-weight: 600; text-align: center; }
-  .v-sig-header .cell { flex: 1; padding: 5px 4px; }
-  .v-sig-header .cell + .cell { border-left: 1px solid var(--line); }
-
-  .v-sig-blank { display: flex; padding: 0; flex: 0 0 15mm; }
-  .v-sig-blank .cell { flex: 1; }
-  .v-sig-blank .cell + .cell { border-left: 1px solid var(--line); }
-
-  @page pa5 { size: A5; margin: 0; }
-  @page pa4 { size: A4; margin: 0; }
-
+  @page { size:A4; margin:0; }
   @media print {
-    body { background: #fff; padding: 0; }
-    .no-print { display: none !important; }
-    .voucher-page {
-      border: none;
-      box-shadow: none;
-      margin: 0;
-      break-after: page;
-    }
-    .voucher-page:last-child { break-after: auto; }
+    body { background:#fff; padding:0; }
+    .no-print { display:none !important; }
+    .sheet { border:none; box-shadow:none; margin:0; break-after:page; }
+    .sheet:last-child { break-after:auto; }
   }
 </style>
 </head>
 <body>
 <div class="app">
-
   <h1>支付證產生器</h1>
-  <p class="sub">上傳進貨明細檔（「檔案1」格式），依廠商自動彙總發票並產生每家廠商的支付證，可直接列印或另存 PDF。每家廠商印在一張 A4，資料太多時會自動縮小字級塞進同一頁。</p>
+  <p class="sub">上傳進貨明細檔（「檔案1」格式），依廠商自動彙總發票並產生支付證。發票少的廠商印成半張 A4（兩家共用一張 A4），發票多的廠商自動改用整張 A4；也可手動指定。</p>
 
   <div class="panel no-print">
     <h2>1. 上傳與設定</h2>
@@ -181,8 +98,14 @@
         <input type="text" id="applyDate" placeholder="例：115/07/02">
       </div>
       <div class="field">
-        <button id="genBtn" disabled>產生支付證</button>
+        <label for="sizeMode">版面大小</label>
+        <select id="sizeMode">
+          <option value="auto">自動（放得下就半張，否則整張）</option>
+          <option value="full">全部整張 A4</option>
+          <option value="half">全部半張 A4（放不下時才改整張）</option>
+        </select>
       </div>
+      <div class="field"><button id="genBtn" disabled>產生支付證</button></div>
     </div>
     <div class="status" id="status">請先選擇檔案。</div>
   </div>
@@ -195,10 +118,10 @@
       <button id="printBtn">列印 / 另存 PDF（全部廠商）</button>
       <button class="secondary" id="resetBtn">重新上傳</button>
     </div>
+    <div class="status">列印時請選 A4、邊界「無」、縮放 100%。半張的兩份中間有虛線可裁開。</div>
   </div>
 
   <div id="vouchers"></div>
-
 </div>
 
 <script>
@@ -210,24 +133,18 @@ function chineseFinancial(num) {
   var bigUnit = ["", "萬", "億", "兆"];
   var s = String(num);
   var groups = [];
-  while (s.length) {
-    groups.unshift(s.slice(-4));
-    s = s.slice(0, -4);
-  }
+  while (s.length) { groups.unshift(s.slice(-4)); s = s.slice(0, -4); }
   var parts = [];
   var prevHadContent = true;
   for (var gi = 0; gi < groups.length; gi++) {
     var g = groups[gi].padStart(4, "0");
     var big = bigUnit[groups.length - 1 - gi];
-    var seg = "";
-    var pendingZero = false;
-    var started = false;
+    var seg = "", pendingZero = false, started = false;
     for (var i = 0; i < 4; i++) {
       var d = parseInt(g[i], 10);
       var pos = 3 - i;
-      if (d === 0) {
-        if (started) pendingZero = true;
-      } else {
+      if (d === 0) { if (started) pendingZero = true; }
+      else {
         if (pendingZero) { seg += "零"; pendingZero = false; }
         seg += digits[d] + unit[pos];
         started = true;
@@ -237,9 +154,7 @@ function chineseFinancial(num) {
       if (parts.length && g[0] === "0" && prevHadContent) parts.push("零");
       parts.push(seg + big);
       prevHadContent = true;
-    } else {
-      prevHadContent = false;
-    }
+    } else { prevHadContent = false; }
   }
   var result = parts.join("");
   while (result.indexOf("零零") !== -1) result = result.replace("零零", "零");
@@ -251,11 +166,7 @@ function fmtDate(raw) {
   if (raw == null) return "";
   var s = String(raw).trim();
   var m = s.match(/(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)/);
-  if (m) {
-    var mm = m[2].padStart(2, "0");
-    var dd = m[3].padStart(2, "0");
-    return mm + "/" + dd;
-  }
+  if (m) return m[2].padStart(2, "0") + "/" + m[3].padStart(2, "0");
   return s;
 }
 
@@ -263,9 +174,7 @@ function findHeaderRow(rows) {
   for (var r = 0; r < Math.min(rows.length, 15); r++) {
     var row = rows[r] || [];
     var joined = row.map(function(c){ return c == null ? "" : String(c); });
-    if (joined.indexOf("廠商") !== -1 && joined.indexOf("發票金額") !== -1) {
-      return r;
-    }
+    if (joined.indexOf("廠商") !== -1 && joined.indexOf("發票金額") !== -1) return r;
   }
   return -1;
 }
@@ -286,16 +195,12 @@ fileInput.addEventListener("change", function() {
   var reader = new FileReader();
   reader.onload = function(e) {
     try {
-      var data = new Uint8Array(e.target.result);
-      var wb = XLSX.read(data, { type: "array" });
+      var wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
       var best = null;
       wb.SheetNames.forEach(function(name) {
-        var ws = wb.Sheets[name];
-        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null });
         var hIdx = findHeaderRow(rows);
-        if (hIdx !== -1 && (!best || rows.length > best.rows.length)) {
-          best = { rows: rows, headerIdx: hIdx };
-        }
+        if (hIdx !== -1 && (!best || rows.length > best.rows.length)) best = { rows: rows, headerIdx: hIdx };
       });
       if (!best) {
         statusEl.textContent = "找不到含「廠商」「發票金額」欄位的工作表，請確認檔案格式。";
@@ -322,89 +227,77 @@ function dateSortKey(mmdd) {
 function columnMajorOrder(items, perLine) {
   var rows = Math.ceil(items.length / perLine);
   var out = [];
-  for (var r = 0; r < rows; r++) {
+  for (var r = 0; r < rows; r++)
     for (var c = 0; c < perLine; c++) {
       var idx = c * rows + r;
       out.push(idx < items.length ? items[idx] : null);
     }
-  }
   return out;
 }
 
 function groupByInvoice(items) {
-  var map = {};
-  var order = [];
+  var map = {}, order = [];
   items.forEach(function(it) {
-    var key = it.inv;
-    if (!(key in map)) {
-      map[key] = { date: it.date, inv: it.inv, amt: 0 };
-      order.push(key);
-    }
-    map[key].amt += it.amt;
+    if (!(it.inv in map)) { map[it.inv] = { date: it.date, inv: it.inv, amt: 0 }; order.push(it.inv); }
+    map[it.inv].amt += it.amt;
   });
   return order.map(function(k) { return map[k]; });
 }
 
-function buildVoucherEl(vendor, info, reason, applyDate) {
-  var PER_LINE = 4;
+function buildVoucherEl(vendor, info, reason, applyDate, size) {
   var grouped = groupByInvoice(info.items);
-  var sortedItems = grouped.slice().sort(function(a, b) {
+  var sorted = grouped.slice().sort(function(a, b) {
     var d = dateSortKey(a.date) - dateSortKey(b.date);
     if (d !== 0) return d;
     return a.inv < b.inv ? -1 : (a.inv > b.inv ? 1 : 0);
   });
-  var ordered = columnMajorOrder(sortedItems, PER_LINE);
   var gridHtml = "";
-  ordered.forEach(function(it) {
-    if (it) {
-      gridHtml += "<div class=g-date>" + it.date + "</div>" +
-                  "<div class=g-inv>" + it.inv + "</div>" +
-                  "<div class=g-amt>" + it.amt.toLocaleString() + "</div>";
-    } else {
-      gridHtml += "<div class=g-date></div><div class=g-inv></div><div class=g-amt></div>";
-    }
+  columnMajorOrder(sorted, 4).forEach(function(it) {
+    if (it) gridHtml += "<div class=g-date>" + it.date + "</div><div class=g-inv>" + it.inv +
+                        "</div><div class=g-amt>" + it.amt.toLocaleString() + "</div>";
+    else gridHtml += "<div class=g-date></div><div class=g-inv></div><div class=g-amt></div>";
   });
 
-  var page = document.createElement("div");
-  page.className = "voucher-page size-a4";
-  page.innerHTML =
+  var el = document.createElement("div");
+  el.className = "voucher size-" + size;
+  el.innerHTML =
     "<div class=v-frame>" +
-      "<div class='v-row v-title'>" +
-        "<span class=vname>" + vendor + "　支付證</span>" +
-        "<span class=vdate>申請日期 " + (applyDate || "＿＿＿＿＿＿＿＿") + "</span>" +
-      "</div>" +
+      "<div class='v-row v-title'><span class=vname>" + vendor + "　支付證</span>" +
+        "<span class=vdate>申請日期 " + (applyDate || "＿＿＿＿＿＿＿＿") + "</span></div>" +
       "<div class='v-row v-reason'><span class=lbl>事由</span>　" + reason + "</div>" +
-      "<div class='v-row v-list'>" +
-        "<div class=hint>請將發票(或收據)、請購單及出貨單釘於此處</div>" +
-        "<div class=voucher-list-grid>" + gridHtml + "</div>" +
-      "</div>" +
+      "<div class='v-row v-list'><div class=hint>請將發票(或收據)、請購單及出貨單釘於此處</div>" +
+        "<div class=voucher-list-grid>" + gridHtml + "</div></div>" +
       "<div class='v-row v-amount'>請款金額：新台幣 <b>" + chineseFinancial(info.total) +
         "</b>　NT$<span class=amt-blank>" + info.total.toLocaleString() + "</span></div>" +
       "<div class='v-row'>領款對象：□發票商號__________　□申請人　□沖暫付款　□其他______</div>" +
       "<div class='v-row'>付款對象：□現金　□匯款　□開票　到期日:______　票號:________　金額:_______</div>" +
       "<div class='v-row v-split'><div class=half>單位名稱及代碼：<br><br>會計審核：</div><div class=half>會計科目</div></div>" +
       "<div class='v-row v-split'><div class=half>&nbsp;</div><div class=half>傳票號碼：</div></div>" +
-      "<div class='v-row v-sig-header'>" +
-        "<div class=cell>領款人</div><div class=cell>申請人</div><div class=cell>單位主管</div>" +
-        "<div class=cell>部門主管</div><div class=cell>副院長</div><div class=cell>院長</div>" +
-      "</div>" +
-      "<div class='v-row v-sig-blank'>" +
-        "<div class=cell></div><div class=cell></div><div class=cell></div>" +
-        "<div class=cell></div><div class=cell></div><div class=cell></div>" +
-      "</div>" +
+      "<div class='v-row v-sig-header'><div class=cell>領款人</div><div class=cell>申請人</div><div class=cell>單位主管</div>" +
+        "<div class=cell>部門主管</div><div class=cell>副院長</div><div class=cell>院長</div></div>" +
+      "<div class='v-row v-sig-blank'><div class=cell></div><div class=cell></div><div class=cell></div>" +
+        "<div class=cell></div><div class=cell></div><div class=cell></div></div>" +
     "</div>";
-  return page;
+  return el;
 }
 
-function shrinkToFit(page, initialPx, floorPx) {
-  var grid = page.querySelector(".voucher-list-grid");
-  var fontSize = initialPx;
-  grid.style.fontSize = fontSize + "px";
-  while (grid.scrollHeight > grid.clientHeight && fontSize > floorPx) {
-    fontSize -= 0.5;
-    grid.style.fontSize = fontSize + "px";
+// Must be called while the element is attached to the DOM.
+function shrinkToFit(el, initialPx, floorPx) {
+  var grid = el.querySelector(".voucher-list-grid");
+  var fs = initialPx;
+  grid.style.fontSize = fs + "px";
+  while (grid.scrollHeight > grid.clientHeight && fs > floorPx) {
+    fs -= 0.5;
+    grid.style.fontSize = fs + "px";
   }
   return grid.scrollHeight <= grid.clientHeight;
+}
+
+function newSheet() {
+  var s = document.createElement("div");
+  s.className = "sheet";
+  vouchersEl.appendChild(s);
+  return s;
 }
 
 genBtn.addEventListener("click", function() {
@@ -415,16 +308,10 @@ genBtn.addEventListener("click", function() {
 
   var need = ["廠商", "發票號碼", "發票日期", "發票金額"];
   for (var n = 0; n < need.length; n++) {
-    if (!(need[n] in idx)) {
-      statusEl.textContent = "缺少必要欄位：" + need[n];
-      return;
-    }
+    if (!(need[n] in idx)) { statusEl.textContent = "缺少必要欄位：" + need[n]; return; }
   }
   var hasPurchaseAmt = "進貨金額" in idx;
-
-  var vendors = {};
-  var order = [];
-  var warnings = [];
+  var vendors = {}, order = [], warnings = [];
 
   for (var r = workbookRows.headerIdx + 1; r < workbookRows.rows.length; r++) {
     var row = workbookRows.rows[r];
@@ -433,10 +320,7 @@ genBtn.addEventListener("click", function() {
     if (vendor == null || String(vendor).trim() === "") continue;
     vendor = String(vendor).trim();
     if (vendor.indexOf("合計") !== -1 || vendor.indexOf("總計") !== -1) continue;
-
-    var invNo = row[idx["發票號碼"]];
-    var invDate = row[idx["發票日期"]];
-    var invAmt = row[idx["發票金額"]];
+    var invNo = row[idx["發票號碼"]], invDate = row[idx["發票日期"]], invAmt = row[idx["發票金額"]];
     if (invNo == null || invAmt == null) continue;
     invAmt = Number(invAmt);
     if (isNaN(invAmt)) continue;
@@ -453,53 +337,69 @@ genBtn.addEventListener("click", function() {
       }
     }
   }
-
   order.sort(function(a, b) { return a.localeCompare(b, "zh-Hant"); });
 
   var reason = document.getElementById("reason").value.trim();
   var applyDate = document.getElementById("applyDate").value.trim();
+  var mode = document.getElementById("sizeMode").value;
 
   vouchersEl.innerHTML = "";
-  var fragment = document.createDocumentFragment();
-  var pages = [];
+  var pendingHalf = null;   // sheet that currently holds only one half voucher
+  var sizeOf = {};
+
   order.forEach(function(vendor) {
     var info = vendors[vendor];
-    var page = buildVoucherEl(vendor, info, reason, applyDate);
-    fragment.appendChild(page);
-    pages.push({ vendor: vendor, page: page });
-  });
-  vouchersEl.appendChild(fragment);
+    var el, size = null;
 
-  // Fit each voucher's item list onto its A4 page.
-  pages.forEach(function(p) {
-    var fits = shrinkToFit(p.page, 13, 8);
-    if (!fits) {
-      warnings.push(p.vendor + "：項目數量過多，A4 版面內容仍偏擠，建議列印後確認是否需要拆頁。");
+    if (mode !== "full") {
+      // try half first, inside a measuring sheet
+      var sheet = pendingHalf || newSheet();
+      el = buildVoucherEl(vendor, info, reason, applyDate, "half");
+      sheet.appendChild(el);
+      if (shrinkToFit(el, 11.5, 9)) {
+        size = "half";
+        pendingHalf = pendingHalf ? null : sheet;   // second half fills the sheet
+      } else {
+        sheet.removeChild(el);
+        if (!pendingHalf) vouchersEl.removeChild(sheet);
+      }
     }
+    if (!size) {
+      var full = newSheet();
+      el = buildVoucherEl(vendor, info, reason, applyDate, "full");
+      full.appendChild(el);
+      if (!shrinkToFit(el, 13, 8)) {
+        warnings.push(vendor + "：項目數量過多，A4 版面內容仍偏擠，建議列印後確認是否需要拆頁。");
+      }
+      size = "full";
+    }
+    sizeOf[vendor] = size;
   });
 
   // Summary table
-  var html = "<tr><th>廠商</th><th>發票筆數</th><th class=num>請款總額</th></tr>";
-  var grand = 0;
+  var html = "<tr><th>廠商</th><th>發票筆數</th><th>版面</th><th class=num>請款總額</th></tr>";
+  var grand = 0, nHalf = 0;
   order.forEach(function(v) {
     var info = vendors[v];
     grand += info.total;
-    html += "<tr><td>" + v + "</td><td>" + info.items.length + "</td><td class=num>" +
-      info.total.toLocaleString() + "</td></tr>";
+    if (sizeOf[v] === "half") nHalf++;
+    html += "<tr><td>" + v + "</td><td>" + info.items.length + "</td><td class=tag>" +
+      (sizeOf[v] === "half" ? "半張" : "整張") + "</td><td class=num>" + info.total.toLocaleString() + "</td></tr>";
   });
-  html += "<tr class=total><td>共 " + order.length + " 家廠商</td><td></td><td class=num>" + grand.toLocaleString() + "</td></tr>";
+  html += "<tr class=total><td>共 " + order.length + " 家廠商</td><td></td><td></td><td class=num>" +
+    grand.toLocaleString() + "</td></tr>";
   summaryTable.innerHTML = html;
 
   if (warnings.length) {
     warnArea.innerHTML = "<details class=warnbox open><summary>發現 " + warnings.length +
       " 項提醒，建議核對後再送出</summary><ul>" +
       warnings.map(function(w){ return "<li>" + w + "</li>"; }).join("") + "</ul></details>";
-  } else {
-    warnArea.innerHTML = "";
-  }
+  } else { warnArea.innerHTML = ""; }
 
   summaryPanel.style.display = "block";
-  statusEl.textContent = "已產生 " + order.length + " 家廠商的支付證，請於下方核對後列印。";
+  var sheets = vouchersEl.children.length;
+  statusEl.textContent = "已產生 " + order.length + " 家廠商的支付證（半張 " + nHalf + " 份、整張 " +
+    (order.length - nHalf) + " 份），共 " + sheets + " 張 A4，請於下方核對後列印。";
 });
 
 document.getElementById("printBtn").addEventListener("click", function() { window.print(); });
